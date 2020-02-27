@@ -149,7 +149,7 @@ describe('db', function() {
     it('should get the right refreshToken', function() {
       var hash = encrypt.hash(refreshToken);
       return db.getRefreshToken(hash).then(function(t) {
-        assert.equal(hex(t.token), hex(hash), 'got the right refresh_token');
+        assert.equal(hex(t.tokenId), hex(hash), 'got the right refresh_token');
       });
     });
 
@@ -179,8 +179,8 @@ describe('db', function() {
       const userId = buf(randomString(16));
       const email = 'a@b' + randomString(16) + ' + .c';
       const scope = ['no_scope'];
-      let tokenIdHash;
-      let refreshTokenIdHash;
+      let accessTokenId;
+      let refreshTokenId;
 
       return db
         .registerClient({
@@ -204,7 +204,7 @@ describe('db', function() {
           });
         })
         .then(function(t) {
-          tokenIdHash = encrypt.hash(t.token.toString('hex'));
+          accessTokenId = encrypt.hash(t.token.toString('hex'));
           return db.generateRefreshToken({
             clientId: clientId,
             userId: userId,
@@ -213,22 +213,22 @@ describe('db', function() {
           });
         })
         .then(function(t) {
-          refreshTokenIdHash = encrypt.hash(t.token.toString('hex'));
+          refreshTokenId = encrypt.hash(t.token.toString('hex'));
 
           return Promise.all([
-            db.getRefreshToken(refreshTokenIdHash),
-            db.getAccessToken(tokenIdHash),
+            db.getRefreshToken(refreshTokenId),
+            db.getAccessToken(accessTokenId),
           ]);
         })
         .then(tokens => {
-          assert.ok(tokens[0].token);
+          assert.ok(tokens[0].tokenId);
           assert.ok(tokens[1].tokenId);
           return db.removePublicAndCanGrantTokens(hex(userId));
         })
         .then(t => {
           return Promise.all([
-            db.getRefreshToken(refreshTokenIdHash),
-            db.getAccessToken(tokenIdHash),
+            db.getRefreshToken(refreshTokenId),
+            db.getAccessToken(accessTokenId),
           ]);
         })
         .catch(err => {
@@ -259,7 +259,7 @@ describe('db', function() {
         canGrant: false,
         publicClient: false,
       }).then(tokens => {
-        assert.ok(tokens[0].token);
+        assert.ok(tokens[0].tokenId);
         assert.ok(tokens[1].tokenId);
       });
     });
@@ -331,12 +331,13 @@ describe('db', function() {
 
     it('should refresh token lastUsedAt', function() {
       var tokenFirstUsage = {};
-      var hash = encrypt.hash(refreshToken.token);
+      var tokenId = encrypt.hash(refreshToken.token);
 
       return db
-        .getRefreshToken(hash)
+        .getRefreshToken(tokenId)
         .then(function(t) {
-          assert.equal(hex(t.token), hex(hash), 'same token');
+          console.log('ORIGIN', t);
+          assert.equal(hex(t.tokenId), hex(tokenId), 'same token');
 
           tokenFirstUsage.createdAt = new Date(t.createdAt);
           tokenFirstUsage.lastUsedAt = t.lastUsedAt;
@@ -344,13 +345,14 @@ describe('db', function() {
           return Promise.delay(1000); //ensures that creation and subsequent usage are at least 1s apart
         })
         .then(function() {
-          return db.usedRefreshToken(encrypt.hash(refreshToken.token));
+          return db.touchRefreshToken(refreshToken);
         })
         .then(function() {
-          return db.getRefreshToken(hash);
+          return db.getRefreshToken(tokenId);
         })
         .then(function(t) {
-          assert.equal(hex(t.token), hex(hash), 'same token');
+          console.log('UPDATED', t);
+          assert.equal(hex(t.tokenId), hex(tokenId), 'same token');
           var updatedLastUsedAt = new Date(t.lastUsedAt);
 
           assert.equal(
@@ -683,21 +685,21 @@ describe('db', function() {
         const t = await db.generateAccessToken(tokenData);
         const mysql = await db.mysql;
         const tt = await mysql._getAccessToken(t.tokenId);
-        await db.removeAccessToken(t.tokenId);
+        await db.removeAccessToken(t);
         assert.equal(hex(tt.tokenId), hex(t.tokenId));
       });
 
       it('retrieves them with getAccessToken', async () => {
         const t = await db.generateAccessToken(tokenData);
         const tt = await db.getAccessToken(t.tokenId);
-        await db.removeAccessToken(t.tokenId);
+        await db.removeAccessToken(t);
         assert.equal(hex(tt.tokenId), hex(t.tokenId));
       });
 
       it('retrieves them with getActiveClientsByUid', async () => {
         const t = await db.generateAccessToken(tokenData);
         const clients = await db.getActiveClientsByUid(userId);
-        await db.removeAccessToken(t.tokenId);
+        await db.removeAccessToken(t);
         assert.isArray(clients);
         assert.lengthOf(clients, 1);
         assert.deepEqual(clients[0].id, pocketId);
@@ -707,7 +709,7 @@ describe('db', function() {
       it('retrieves them with getAccessTokensByUid', async () => {
         const t = await db.generateAccessToken(tokenData);
         const tokens = await db.getAccessTokensByUid(userId);
-        await db.removeAccessToken(t.tokenId);
+        await db.removeAccessToken(t);
         assert.isArray(tokens);
         assert.lengthOf(tokens, 1);
         assert.deepEqual(tokens[0].tokenId, t.tokenId);
@@ -717,7 +719,7 @@ describe('db', function() {
       it('deletes them with removeAccessToken', async () => {
         const t = await db.generateAccessToken(tokenData);
         const tt = await db.getAccessToken(t.tokenId);
-        await db.removeAccessToken(t.tokenId);
+        await db.removeAccessToken(t);
         assert.isNotNull(tt);
         const ttt = await db.getAccessToken(t.tokenId);
         assert.isUndefined(ttt);

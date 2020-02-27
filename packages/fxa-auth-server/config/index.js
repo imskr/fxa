@@ -355,6 +355,30 @@ const conf = convict({
         doc: 'Key prefix for access tokens in Redis',
       },
     },
+    refreshTokens: {
+      enabled: {
+        default: false,
+        doc: 'Enable Redis for refresh token metadata',
+        format: Boolean,
+        env: 'REFRESH_TOKEN_REDIS_ENABLED',
+      },
+      host: {
+        default: '127.0.0.1',
+        env: 'REFRESH_TOKEN_REDIS_HOST',
+        format: String,
+      },
+      port: {
+        default: 6379,
+        env: 'REFRESH_TOKEN_REDIS_PORT',
+        format: 'port',
+      },
+      prefix: {
+        default: 'rt:',
+        env: 'REFRESH_TOKEN_REDIS_KEY_PREFIX',
+        format: String,
+        doc: 'Key prefix for refresh tokens in Redis',
+      },
+    },
     sessionTokens: {
       enabled: {
         default: true,

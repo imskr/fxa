@@ -3596,7 +3596,7 @@ describe('/v1', function() {
       it('deletes all tokens and refreshTokens for some client id', function() {
         const scopes = ['profile'];
         let user2ClientWriteToken;
-        let refreshTokenIdHash;
+        let refreshTokenId;
         return db
           .registerClient(client2)
           .then(function() {
@@ -3625,7 +3625,7 @@ describe('/v1', function() {
             });
           })
           .then(function(t) {
-            refreshTokenIdHash = encrypt.hash(t.token.toString('hex'));
+            refreshTokenId = t.tokenId.toString('hex');
 
             return Server.api.get({
               url: '/client-tokens',
@@ -3638,12 +3638,12 @@ describe('/v1', function() {
             assert.equal(res.result.length, 2);
             assertSecurityHeaders(res);
 
-            return db.getRefreshToken(refreshTokenIdHash);
+            return db.getRefreshToken(refreshTokenId);
           })
           .then(function(tok) {
             assert.equal(
-              tok.token.toString('hex'),
-              refreshTokenIdHash.toString('hex'),
+              tok.tokenId.toString('hex'),
+              refreshTokenId,
               'refresh token was not deleted'
             );
 
@@ -3693,7 +3693,7 @@ describe('/v1', function() {
             assert.equal(res.result.detail, 'Bearer token invalid');
             assertSecurityHeaders(res);
 
-            return db.getRefreshToken(refreshTokenIdHash);
+            return db.getRefreshToken(refreshTokenId);
           })
           .then(function(tok) {
             assert.equal(tok, undefined, 'refresh token was deleted');
@@ -3837,7 +3837,7 @@ describe('/v1', function() {
         email: user.email,
         scope: ScopeSet.fromArray(scope),
       });
-      return encrypt.hash(token.token).toString('hex');
+      return token.tokenId.toString('hex');
     }
 
     async function makeRefreshToken(client, user, scope) {
@@ -3847,7 +3847,7 @@ describe('/v1', function() {
         email: user.email,
         scope: ScopeSet.fromArray(scope),
       });
-      return encrypt.hash(token.token).toString('hex');
+      return token.tokenId.toString('hex');
     }
 
     beforeEach(async () => {
@@ -4125,6 +4125,7 @@ describe('/v1', function() {
             refresh_token_id: tokenId,
           }),
         });
+        console.log(res.result);
         assert.equal(res.statusCode, 200);
         assertSecurityHeaders(res);
 

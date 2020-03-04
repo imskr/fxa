@@ -23,8 +23,12 @@ export default function(defaultBehavior, options = {}) {
   const behavior = function(view, account) {
     return account.isSignedIn().then(isSignedIn => {
       if (isSignedIn) {
-        let success = t('Account verified successfully');
         let endpoint = 'settings';
+        let success;
+
+        if (view.type === 'recovery_key') {
+          success = t('Account recovery enabled');
+        }
 
         if (options.success) {
           success = options.success;
